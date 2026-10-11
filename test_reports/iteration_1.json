@@ -1,0 +1,39 @@
+{
+  "summary": "First full test run of 'گھر کھاتہ' (Ghar Khata) Urdu household expense tracker. Backend: 28/28 pytest tests PASSED across settings, expenses, parse (LLM Urdu + SMS), transcribe, udhaar, bills (incl. idempotent pay creating a bills expense), summary & report. Frontend (mobile viewport 390x844): home hero shows today-left (3,571 روپے), add-expense modal (amount validation error renders, category/method/member chips tappable, SMS paste+parse correctly extracted Rs.1,500 from JazzCash SMS and set method=jazzcash, save worked), udhaar tab (lena/dena kinds, person+amount, settle, expand person all working), bills tab (add bill with electricity kind, pay-bill marks paid + creates linked expense visible on report, delete works), report tab (total, by_category + by_method bars render with correct percentages, prev/next month arrows navigate correctly), settings modal (budget + members save works). Voice recording UI (mic button + 'بولیے…' hint) renders correctly; actual mic I/O not testable in web preview as noted by main agent. No deprecated Expo packages (uses expo-audio, not expo-av).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "ScrollView/animated views", "issue": "Console warning 'props.pointerEvents is deprecated. Use style.pointerEvents' — likely originates from a dependency (react-native-reanimated / react-native-web). Non-blocking but worth tracking library updates. Reference: web preview console log."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ghar_khata.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No functional fixes required. Optional: review the 'props.pointerEvents is deprecated' warning by updating affected dependency when a newer compatible version is available.",
+    "Note for future test agents: actual testIDs are 'bill-kind-chip-<kind>' (not 'bill-kind-<kind>') and 'report-prev-month' / 'report-next-month' (not 'month-prev/next-button'). Review request wording was approximate."
+  ],
+  "critical_code_review_comments": [
+    "server.py uses Literal[tuple(CATEGORIES)] / Literal[tuple(METHODS)] — unusual Pydantic pattern that works but may break on future Pydantic versions. Consider explicit Literal[... , ...] or Enum.",
+    "pay_bill creates a child expense via create_expense (ExpenseIn) — works and idempotent via paid_months set, verified by test_pay_bill_idempotent. Delete of a paid bill does NOT delete the linked expense (by design? worth confirming with product).",
+    "settings PUT silently removes blank members (good). No API-level cap on members list length (minor)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ghar_khata.py (new)",
+    "/app/test_reports/iteration_1.json (new)",
+    "/app/test_reports/pytest/pytest_results.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (28/28)", "frontend": "100% (all requested flows)"},
+  "seed_data_creation": "All test data was prefixed TEST_ and cleaned up by the tests themselves (expenses, udhaar, bills). One UI-created bill expense (TEST_UI_Elec, 1,800) and one SMS-parsed jazzcash expense (1,500) may remain in the DB from frontend testing — negligible, user can delete from UI.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/test_ghar_khata.py and run cleanly under pytest-xdist (28 tests). Frontend uses Expo Router tabs with testIDs tab-index/tab-udhaar/tab-bills/tab-report. Add-expense modal path: /add-expense; Add-bill: /add-bill; Add-udhaar: /add-udhaar; Settings: /settings. SMS parse via LLM takes ~3-6s; sleep accordingly. Mobile viewport 390x844.",
+  "rca_of_issue": "No bugs encountered."
+}

@@ -1,0 +1,146 @@
+{
+  "app_name": "گھر کھاتہ",
+  "personality": "8 Hand-Drawn / Journal",
+  "personality_one_liner": "A calm, earthy, and perfectly imperfect household ledger that feels like a trusted notebook.",
+  "color": {
+    "surface": "#FDFBF7",
+    "onSurface": "#2D2B2A",
+    "surfaceSecondary": "#F4F1EA",
+    "onSurfaceSecondary": "#3E3B3A",
+    "surfaceTertiary": "#EBE6DC",
+    "onSurfaceTertiary": "#4A4746",
+    "surfaceInverse": "#2D2B2A",
+    "onSurfaceInverse": "#FDFBF7",
+    "brand": "#C68763",
+    "brandPrimary": "#C68763",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#8B9D83",
+    "onBrandSecondary": "#FFFFFF",
+    "brandTertiary": "#E8D8CE",
+    "onBrandTertiary": "#6B442E",
+    "success": "#6B8E6B",
+    "onSuccess": "#FFFFFF",
+    "warning": "#D4A373",
+    "onWarning": "#FFFFFF",
+    "error": "#B85C5C",
+    "onError": "#FFFFFF",
+    "info": "#8B9D83",
+    "onInfo": "#FFFFFF",
+    "border": "#E0DCD3",
+    "borderStrong": "#C2BCB0",
+    "divider": "#EAE6DF",
+    "muted": "#8A8580"
+  },
+  "typography": {
+    "displayFontFamily": "NotoNastaliqUrdu",
+    "textFontFamily": "NotoNastaliqUrdu",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical padding, use tactile and calm rhythms. Do not cramp elements. Support RTL layout naturally.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 0,
+  "navigation": "bottom_tabs",
+  "icon_set": "Feather",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": [],
+    "dont's": ["Do not use glass or blur effects; conflicts with Hand-Drawn / Journal earthy aesthetic."]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "Dashboard showing today's safe-to-spend limit, recent expenses, and quick actions.",
+      "states": {
+        "loading": "Centered spinner with a calm fade.",
+        "empty": "Wallet icon with text 'آج کوئی خرچ نہیں' (No expense today).",
+        "error": "Soft rust red text with a retry button."
+      },
+      "layout": "RTL-first. Top hero card (surfaceSecondary with geometric pattern image background and vertical gradient scrim) displaying the 'safe-to-spend' amount and daily progress. Below: a section for recent expenses list. Bottom right: A prominent FAB (brandPrimary) for adding expenses quickly."
+    },
+    {
+      "name": "AddExpense",
+      "purpose": "Quick entry of expenses via voice, SMS paste, or manual input.",
+      "states": {
+        "loading": "Saving state spinner inside the button.",
+        "empty": "N/A",
+        "error": "Inline error messages for missing amount."
+      },
+      "layout": "BottomSheet or full screen modal. Large microphone icon button at the top for voice dictation. Text field for pasting bank SMS. Large numerical keypad or text input for manual amount. Sticky 'Save' (محفوظ کریں) button at the bottom."
+    },
+    {
+      "name": "UdhaarLedger",
+      "purpose": "Track money owed to or by family and friends (Lena/Dena).",
+      "states": {
+        "loading": "Skeleton rows of the ledger.",
+        "empty": "Empty notebook image with text 'کوئی ادھار نہیں' (No udhaar).",
+        "error": "Readable error message with retry."
+      },
+      "layout": "Top section: Total net balance (You owe vs Owed to you). Below: List of people. Each row shows payer avatar (initials in brandTertiary), name, and running balance. Expandable to show transaction history and a 'Settle Up' action."
+    },
+    {
+      "name": "ReportsAndBills",
+      "purpose": "Monthly spending categorization and upcoming bill reminders.",
+      "states": {
+        "loading": "Spinner in the chart area.",
+        "empty": "Illustration of bills/wallet with text 'کوئی بل نہیں' (No bills).",
+        "error": "Readable error message."
+      },
+      "layout": "Two tabs or vertical stacked sections. Top: Monthly spending pie/bar chart showing category breakdown (Groceries, etc.). Bottom: List of utility bills (Electricity, Gas, Internet) with due dates and a 'Mark as Paid' checkbox/button."
+    }
+  ],
+  "images": {
+    "hero_pattern": {
+      "url": "https://images.unsplash.com/photo-1721015942330-294bee912c90?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwxfHxzdWJ0bGUlMjBnZW9tZXRyaWMlMjBwYXR0ZXJuJTIwd2FybXxlbnwwfHx8fDE3OTE2ODk5NzJ8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Subtle warm geometric pattern for hero background"
+    },
+    "udhaar_empty": {
+      "url": "https://images.unsplash.com/photo-1598620617137-2ab990aadd37?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2ODl8MHwxfHNlYXJjaHwyfHxlbXB0eSUyMG5vdGVib29rJTIwam91cm5hbCUyMGRlc2t8ZW58MHx8fHwxNzkxNjg5OTcyfDA&ixlib=rb-4.1.0&q=85",
+      "alt": "Empty notebook on wooden desk for udhaar empty state"
+    },
+    "reports_empty": {
+      "url": "https://images.unsplash.com/photo-1627123424574-724758594e93?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwxfHx3YWxsZXQlMjBsZWF0aGVyJTIwc2ltcGxlfGVufDB8fHx8MTc5MTY4OTk4Mnww&ixlib=rb-4.1.0&q=85",
+      "alt": "Leather wallet for general empty state"
+    }
+  },
+  "instructions_to_main_agent": [
+    "CRITICAL: App must be RTL-first. Ensure flex directions, text alignments, and margins support RTL properly.",
+    "CRITICAL: Use NotoNastaliqUrdu TTF font loaded via expo-font. Nastaliq fonts require extra line height (often 1.5x to 2x) to prevent clipping at the top/bottom. Apply generously.",
+    "Implement the 8 Hand-Drawn / Journal personality: warm earthy tones, slightly irregular radii (mix md and lg), and 0 shadows. Skip glassmorphism.",
+    "For the Hero background, MUST use the `hero_pattern` image covered with a vertical linear gradient scrim (transparent to surfaceInverse 70% at bottom) to ensure 'safe-to-spend' text contrast.",
+    "Add expense flows should have a large target for Voice entry ('بولیے...'), as this is a key feature for the target persona.",
+    "Include subtle haptics on primary actions (FAB, Save, Settle up).",
+    "Keep language respectful, practical, and in Nastaliq Urdu (e.g., کھاتہ, محفوظ کریں, ادھار)."
+  ]
+}
