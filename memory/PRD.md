@@ -27,6 +27,15 @@ MVP: expense entry + voice + udhaar + bill reminders + daily limit & monthly rep
 - /api/expenses: spend_level (normal/slightly_high/unusual) → gentle toast; bill pay skips check
 - Graceful fallback when Jev fails. Tested 19/19 backend + frontend flows.
 
+## Iteration 3 (2026-06)
+- Emergent Google sign-in (auth.tsx, /api/auth/*), root gate: login → household setup → app
+- Shared household: create (6-letter invite code) / join by code / leave; all data household-scoped; fresh start (old data not migrated)
+- Receipt photo (camera/gallery, permission flow) → GPT-5.2 vision /api/receipt; photo not stored
+- Needs vs wants: Jev labels each expense; tap pill on ExpenseRow to change; report split bar + month expense list
+- English/Urdu toggle (LTR Nunito / RTL Nastaliq), 4 themes (Paper, Night, Mehndi, Rose)
+- Virality: share invite code, invite-family banner, share report card (image on native), tell friends
+- Tested: 22/22 backend; frontend pass after fixing auth bootstrap race (screens now wait for session check)
+
 ## Backlog
 - P1: Needs vs wants split in report (Jev), Emergent Google sign-in (paused by user)
 - P1: Receipt photo scan, savings goals (گلک), automatic SMS reading (native Android build)

@@ -8,28 +8,30 @@ import { api, Bill } from "@/src/api";
 import { BILL_KINDS, findIn, rs, tap } from "@/src/constants";
 import { usesNativeTabs } from "@/src/navigation";
 import { makeStyles, radius, spacing, useTheme } from "@/src/theme";
-import { Button, EmptyState, ErrorView, Fab, Icon, IconBadge, UText } from "@/src/components/ui";
+import { useI18n } from "@/src/i18n";
+import { Button, EmptyState, ErrorView, Fab, Icon, IconBadge, ScreenHeader, UText } from "@/src/components/ui";
 import { useToast } from "@/src/components/Toast";
 
 const EMPTY = "https://images.unsplash.com/photo-1627123424574-724758594e93?crop=entropy&cs=srgb&fm=jpg&q=85&w=600";
-
-function dueText(b: Bill) {
-  if (b.paid_this_month) return "اس مہینے ادا ہو چکا";
-  if (b.days_left > 1) return `${b.days_left} دن باقی (${b.due_day} تاریخ)`;
-  if (b.days_left === 1) return "کل آخری تاریخ ہے";
-  if (b.days_left === 0) return "آج آخری تاریخ ہے";
-  return `تاریخ گزر گئی (${b.due_day} تاریخ)`;
-}
 
 export default function BillsScreen() {
   const insets = useSafeAreaInsets();
   const bottomChrome = usesNativeTabs ? insets.bottom : 0;
   const styles = useStyles();
   const { colors } = useTheme();
+  const { tr, lang } = useI18n();
   const qc = useQueryClient();
   const toast = useToast();
   const q = useQuery({ queryKey: ["bills"], queryFn: api.bills });
   const [busy, setBusy] = useState<string | null>(null);
+
+  const dueText = (b: Bill) => {
+    if (b.paid_this_month) return tr("اس مہینے ادا ہو چکا", "Paid this month");
+    if (b.days_left > 1) return tr(`${b.days_left} دن باقی (${b.due_day} تاریخ)`, `${b.days_left} days left (due on ${b.due_day})`);
+    if (b.days_left === 1) return tr("کل آخری تاریخ ہے", "Due tomorrow");
+    if (b.days_left === 0) return tr("آج آخری تاریخ ہے", "Due today");
+    return tr(`تاریخ گزر گئی (${b.due_day} تاریخ)`, `Overdue (was due on ${b.due_day})`);
+  };
 
   const pay = async (b: Bill) => {
     tap(true);
@@ -37,31 +39,30 @@ export default function BillsScreen() {
     try {
       await api.payBill(b.id);
       qc.invalidateQueries();
-      toast(`${b.name} کا بل ادا ہو گیا، خرچ میں بھی لکھ دیا`);
-    } catch (e) {
-      toast((e as Error).message, "error");
+      toast(tr(`${b.name} کا بل ادا ہو گیا، خرچ میں بھی لکھ دیا`, `${b.name} paid and added to expenses`));
+    } catch {
+      toast(tr("بل ادا نہیں ہو سکا", "Couldn't mark as paid"), "error");
     } finally {
       setBusy(null);
     }
   };
   const remove = async (id: string) => {
-    try { await api.deleteBill(id); qc.invalidateQueries(); toast("بل ہٹا دیا گیا"); } catch (e) { toast((e as Error).message, "error"); }
+    try { await api.deleteBill(id); qc.invalidateQueries(); toast(tr("بل ہٹا دیا گیا", "Bill removed")); } catch { toast(tr("بل نہیں ہٹ سکا", "Couldn't remove bill"), "error"); }
   };
 
   return (
     <View style={styles.root}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <UText size="2xl" style={{ lineHeight: 52 }}>بل کی یاد دہانی</UText>
-        <UText size="sm" color={colors.muted}>بجلی، گیس، انٹرنیٹ اور موبائل — کوئی تاریخ نہ چُوکے</UText>
+      <View style={{ paddingTop: insets.top + spacing.sm }}>
+        <ScreenHeader title={tr("بل کی یاد دہانی", "Bill reminders")} subtitle={tr("بجلی، گیس، انٹرنیٹ اور موبائل — کوئی تاریخ نہ چُوکے", "Electricity, gas, internet, mobile — never miss a date")} />
       </View>
       <ScrollView
         contentContainerStyle={{ paddingBottom: bottomChrome + 110, paddingTop: spacing.sm }}
         refreshControl={<RefreshControl refreshing={q.isRefetching} onRefresh={() => q.refetch()} tintColor={colors.brandPrimary} />}
       >
         {q.isLoading ? <ActivityIndicator style={{ marginTop: spacing["3xl"] }} color={colors.brandPrimary} /> : null}
-        {q.isError ? <ErrorView message="بل نہیں آ سکے" onRetry={() => q.refetch()} /> : null}
+        {q.isError ? <ErrorView message={tr("بل نہیں آ سکے", "Couldn't load bills")} onRetry={() => q.refetch()} /> : null}
         {q.data && q.data.length === 0 ? (
-          <EmptyState testID="bills-empty-state" image={EMPTY} title="کوئی بل نہیں" hint="اپنے ماہانہ بل شامل کریں، ہم وقت پر یاد دلائیں گے" />
+          <EmptyState testID="bills-empty-state" image={EMPTY} title={tr("کوئی بل نہیں", "No bills yet")} hint={tr("اپنے ماہانہ بل شامل کریں، ہم وقت پر یاد دلائیں گے", "Add your monthly bills and we'll remind you on time")} />
         ) : null}
         {q.data?.map((b, i) => {
           const k = findIn(BILL_KINDS, b.kind);
@@ -71,16 +72,16 @@ export default function BillsScreen() {
               <View style={styles.row}>
                 <IconBadge name={k.icon} bg={b.paid_this_month ? colors.successSoft : undefined} fg={b.paid_this_month ? colors.success : undefined} />
                 <View style={{ flex: 1 }}>
-                  <UText size="lg">{b.name}</UText>
-                  <UText size="sm" color={b.paid_this_month ? colors.success : urgent ? colors.onBrandTertiary : colors.muted}>{dueText(b)}</UText>
+                  <UText size="lg" bold>{b.name}</UText>
+                  <UText size="sm" color={b.paid_this_month ? colors.success : urgent ? colors.onSurface : colors.muted}>{dueText(b)}</UText>
                 </View>
-                <UText size="lg">{rs(b.amount)}</UText>
+                <UText size="lg" bold>{rs(b.amount, lang)}</UText>
                 <Pressable testID={`delete-bill-${b.id}`} onPress={() => remove(b.id)} hitSlop={8} style={{ width: 32, height: 44, alignItems: "center", justifyContent: "center" }}>
                   <Icon name="trash-2" size={16} color={colors.muted} />
                 </Pressable>
               </View>
               {!b.paid_this_month ? (
-                <Button testID={`pay-bill-${b.id}`} label="ادا ہو گیا" icon="check-circle" variant="secondary" loading={busy === b.id} onPress={() => pay(b)} style={{ marginTop: spacing.md }} />
+                <Button testID={`pay-bill-${b.id}`} label={tr("ادا ہو گیا", "Mark as paid")} icon="check-circle" variant="secondary" loading={busy === b.id} onPress={() => pay(b)} style={{ marginTop: spacing.md }} />
               ) : null}
             </Animated.View>
           );
@@ -91,9 +92,8 @@ export default function BillsScreen() {
   );
 }
 
-const useStyles = makeStyles((c) => ({
+const useStyles = makeStyles((c, d) => ({
   root: { flex: 1, backgroundColor: c.surface },
-  header: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, backgroundColor: c.surface, borderBottomWidth: 1, borderBottomColor: c.divider },
   card: { marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.lg, borderRadius: radius.lg, backgroundColor: c.surfaceSecondary, borderWidth: 1, borderColor: c.border },
-  row: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.md },
+  row: { flexDirection: d.row, alignItems: "center", gap: spacing.md },
 }));

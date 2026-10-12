@@ -11,7 +11,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.emergent.gharkhata.hbl69r",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "بول کر خرچ لکھنے کے لیے"
+        "NSMicrophoneUsageDescription": "Speak your expenses to add them quickly",
+        "NSCameraUsageDescription": "Snap receipts to fill expenses automatically",
+        "NSPhotoLibraryUsageDescription": "Pick receipt photos to fill expenses"
       }
     },
     "android": {
@@ -21,7 +23,8 @@
       },
       "package": "com.emergent.gharkhata.hbl69r",
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -52,6 +55,13 @@
         "expo-audio",
         {
           "microphonePermission": "بول کر خرچ لکھنے کے لیے"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Snap receipts to fill expenses automatically",
+          "photosPermission": "Pick receipt photos to fill expenses"
         }
       ]
     ],

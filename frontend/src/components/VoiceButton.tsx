@@ -6,6 +6,7 @@ import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } fr
 import { radius, spacing, useTheme } from "@/src/theme";
 import { api } from "@/src/api";
 import { tap } from "@/src/constants";
+import { useI18n } from "@/src/i18n";
 import { Button, Icon, UText } from "./ui";
 
 type Phase = "idle" | "listening" | "thinking";
@@ -13,6 +14,7 @@ type Perm = "ok" | "explain" | "blocked";
 
 export function VoiceButton({ onText, onError }: { onText: (t: string) => void; onError: (m: string) => void }) {
   const { colors } = useTheme();
+  const { tr } = useI18n();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [phase, setPhase] = useState<Phase>("idle");
   const [perm, setPerm] = useState<Perm>("ok");
@@ -47,7 +49,7 @@ export function VoiceButton({ onText, onError }: { onText: (t: string) => void; 
       setPhase("listening");
       watchdog.current = setTimeout(() => { finish(); }, 45000);
     } catch {
-      onError("ریکارڈنگ شروع نہیں ہو سکی");
+      onError(tr("ریکارڈنگ شروع نہیں ہو سکی", "Couldn't start recording"));
       setPhase("idle");
     } finally {
       preparing.current = false;
@@ -60,12 +62,12 @@ export function VoiceButton({ onText, onError }: { onText: (t: string) => void; 
     try {
       await recorder.stop();
       const uri = recorder.uri;
-      if (!uri || Date.now() - startedAt.current < 600) { onError("آواز بہت مختصر تھی، دوبارہ بولیں"); return; }
+      if (!uri || Date.now() - startedAt.current < 600) { onError(tr("آواز بہت مختصر تھی، دوبارہ بولیں", "That was too short, please speak again")); return; }
       const text = await api.transcribe(uri);
-      if (!text) { onError("آواز سنائی نہیں دی، ذرا اونچا بولیں"); return; }
+      if (!text) { onError(tr("آواز سنائی نہیں دی، ذرا اونچا بولیں", "Couldn't hear you, please speak a little louder")); return; }
       onText(text);
-    } catch (e) {
-      onError((e as Error).message || "آواز سمجھ نہیں آئی");
+    } catch {
+      onError(tr("آواز سمجھ نہیں آئی", "Couldn't understand the audio"));
     } finally {
       setPhase("idle");
     }
@@ -87,7 +89,9 @@ export function VoiceButton({ onText, onError }: { onText: (t: string) => void; 
     setPerm("blocked");
   };
 
-  const label = phase === "listening" ? "سن رہے ہیں… بولنے کے بعد دبائیں" : phase === "thinking" ? "سمجھ رہے ہیں…" : "بولیے… جیسے «دودھ پانچ سو روپے»";
+  const label = phase === "listening" ? tr("سن رہے ہیں… بولنے کے بعد دبائیں", "Listening… tap when done")
+    : phase === "thinking" ? tr("سمجھ رہے ہیں…", "Understanding…")
+    : tr("بولیے… جیسے «دودھ پانچ سو روپے»", "Speak… like “milk 500 rupees”");
 
   return (
     <View style={{ alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg }}>
@@ -105,14 +109,14 @@ export function VoiceButton({ onText, onError }: { onText: (t: string) => void; 
 
       {perm === "explain" ? (
         <View testID="mic-permission-explain" style={{ backgroundColor: colors.surfaceSecondary, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, alignSelf: "stretch", marginHorizontal: spacing.lg }}>
-          <UText>بول کر خرچ لکھنے کے لیے مائیک کی اجازت چاہیے۔ آپ کی آواز صرف خرچ سمجھنے کے لیے استعمال ہوگی۔</UText>
-          <Button testID="mic-permission-allow-button" label="اجازت دیں" icon="mic" onPress={requestAndStart} />
+          <UText>{tr("بول کر خرچ لکھنے کے لیے مائیک کی اجازت چاہیے۔ آپ کی آواز صرف خرچ سمجھنے کے لیے استعمال ہوگی۔", "Microphone access lets you speak expenses. Your voice is only used to understand the expense.")}</UText>
+          <Button testID="mic-permission-allow-button" label={tr("اجازت دیں", "Allow microphone")} icon="mic" onPress={requestAndStart} />
         </View>
       ) : null}
       {perm === "blocked" ? (
         <View testID="mic-permission-blocked" style={{ backgroundColor: colors.warningSoft, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.sm, alignSelf: "stretch", marginHorizontal: spacing.lg }}>
-          <UText>مائیک کی اجازت بند ہے۔ ترتیبات میں جا کر اجازت دے دیں، یا نیچے ہاتھ سے لکھ لیں۔</UText>
-          <Button testID="mic-open-settings-button" label="ترتیبات کھولیں" variant="secondary" icon="settings" onPress={() => Linking.openSettings()} />
+          <UText>{tr("مائیک کی اجازت بند ہے۔ ترتیبات میں جا کر اجازت دے دیں، یا نیچے ہاتھ سے لکھ لیں۔", "Microphone access is off. Enable it in Settings, or type below.")}</UText>
+          <Button testID="mic-open-settings-button" label={tr("ترتیبات کھولیں", "Open Settings")} variant="secondary" icon="settings" onPress={() => Linking.openSettings()} />
         </View>
       ) : null}
     </View>
