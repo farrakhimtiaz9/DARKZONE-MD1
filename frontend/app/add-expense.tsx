@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +30,36 @@ export default function AddExpense() {
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [catTouched, setCatTouched] = useState(false);
+  const [autoCat, setAutoCat] = useState(false);
+  const catTurn = useRef(0);
+
+  // Smart helper picks the category from the note as the user types (unless they chose one themselves).
+  useEffect(() => {
+    const text = note.trim();
+    if (catTouched || text.length < 2) return;
+    const myTurn = ++catTurn.current;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.categorize(text);
+        if (myTurn !== catTurn.current || !r.category || r.confidence < 0.4) return;
+        setCategory(r.category);
+        setAutoCat(true);
+      } catch { /* keep the current category */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [note, catTouched]);
+
+  const SMS_KIND_MSG: Record<string, string> = {
+    received: "یہ پیغام رقم ملنے کا ہے، خرچ نہیں — اسے نہیں لکھا",
+    otp: "یہ تصدیقی کوڈ کا پیغام ہے، اس میں کوئی خرچ نہیں",
+    balance: "یہ صرف بیلنس کی اطلاع ہے، کوئی نیا خرچ نہیں",
+    promo: "یہ اشتہار یا اطلاع لگتی ہے، اس میں کوئی خرچ نہیں",
+  };
+  const SPEND_MSG: Record<string, string> = {
+    slightly_high: "خرچ محفوظ ہو گیا — آج کی حد سے تھوڑا زیادہ ہے، کوئی بات نہیں",
+    unusual: "خرچ محفوظ ہو گیا — یہ معمول سے بڑا خرچ ہے، باقی دن ذرا ہاتھ روک کر",
+  };
 
   const apply = (p: Parsed) => {
     if (p.amount > 0) setAmount(String(Math.round(p.amount)));
@@ -39,11 +69,15 @@ export default function AddExpense() {
     if (p.member) setMember(p.member);
   };
 
-  const understand = async (text: string) => {
+  const understand = async (text: string, source: "voice" | "sms") => {
     setParsing(true);
     setErr("");
     try {
-      const p = await api.parse(text);
+      const p = await api.parse(text, source);
+      if (!p.is_spend) {
+        toast(SMS_KIND_MSG[p.sms_kind ?? ""] ?? "اس پیغام میں کوئی خرچ نہیں ملا", "error");
+        return;
+      }
       apply(p);
       toast(p.amount > 0 ? "مددگار نے خرچ بھر دیا، دیکھ کر محفوظ کریں" : "رقم سمجھ نہیں آئی، خود لکھ دیں");
     } catch (e) {
@@ -59,9 +93,9 @@ export default function AddExpense() {
     tap(true);
     setSaving(true);
     try {
-      await api.addExpense({ amount: n, category, payment_method: method, member, note: note.trim() });
+      const saved = await api.addExpense({ amount: n, category, payment_method: method, member, note: note.trim() });
       qc.invalidateQueries();
-      toast("خرچ محفوظ ہو گیا");
+      toast(SPEND_MSG[saved.spend_level ?? ""] ?? "خرچ محفوظ ہو گیا");
       router.back();
     } catch (e) {
       toast((e as Error).message, "error");
@@ -76,7 +110,7 @@ export default function AddExpense() {
     <View style={styles.root}>
       <ModalHeader title="خرچ لکھیں" />
       <KeyboardAwareScrollView bottomOffset={100} contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-        <VoiceButton onText={(t) => { setHeard(t); understand(t); }} onError={(m) => toast(m, "error")} />
+        <VoiceButton onText={(t) => { setHeard(t); understand(t, "voice"); }} onError={(m) => toast(m, "error")} />
         {heard ? (
           <View style={styles.heard} testID="voice-transcript">
             <UText size="sm" color={colors.muted}>آپ نے کہا:</UText>
@@ -88,7 +122,7 @@ export default function AddExpense() {
           <UText size="lg">بینک / جاز کیش / ایزی پیسہ کا پیغام</UText>
           <UText size="sm" color={colors.muted}>پیغام کاپی کر کے یہاں چسپاں کریں، مددگار خود خرچ نکال لے گا</UText>
           <Field testID="sms-paste-input" value={sms} onChangeText={setSms} placeholder="یہاں پیغام چسپاں کریں…" multiline style={{ minHeight: 80, backgroundColor: colors.surface }} />
-          <Button testID="sms-parse-button" label="پیغام سمجھیں" icon="message-square" variant="secondary" loading={parsing} disabled={!sms.trim()} onPress={() => understand(sms)} />
+          <Button testID="sms-parse-button" label="پیغام سمجھیں" icon="message-square" variant="secondary" loading={parsing} disabled={!sms.trim()} onPress={() => understand(sms, "sms")} />
         </View>
 
         <Label>رقم (روپے)</Label>
@@ -98,8 +132,11 @@ export default function AddExpense() {
         </View>
 
         <Label>کس چیز پر؟</Label>
+        {autoCat && !catTouched ? (
+          <UText testID="auto-category-hint" size="sm" color={colors.success} style={{ paddingHorizontal: spacing.lg }}>مددگار نے تفصیل دیکھ کر قسم چن لی — چاہیں تو بدل دیں</UText>
+        ) : null}
         <ChipRow>
-          {CATEGORIES.map((c) => <Chip key={c.key} testID={`category-chip-${c.key}`} label={c.label} icon={c.icon} selected={category === c.key} onPress={() => setCategory(c.key)} />)}
+          {CATEGORIES.map((c) => <Chip key={c.key} testID={`category-chip-${c.key}`} label={c.label} icon={c.icon} selected={category === c.key} onPress={() => { setCategory(c.key); setCatTouched(true); }} />)}
         </ChipRow>
 
         <Label>کیسے ادا کیا؟</Label>

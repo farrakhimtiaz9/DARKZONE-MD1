@@ -21,7 +21,14 @@ MVP: expense entry + voice + udhaar + bill reminders + daily limit & monthly rep
 ## Implemented (2026-06)
 - All MVP features above; testing agent 28/28 backend pass, frontend flows pass.
 
+## Jev decisions (2026-06)
+- /api/categorize: note → category (auto-picks chip unless user chose one)
+- /api/parse source=sms: Jev checks spend vs received/OTP/balance/promo before GPT parsing
+- /api/expenses: spend_level (normal/slightly_high/unusual) → gentle toast; bill pay skips check
+- Graceful fallback when Jev fails. Tested 19/19 backend + frontend flows.
+
 ## Backlog
+- P1: Needs vs wants split in report (Jev), Emergent Google sign-in (paused by user)
 - P1: Receipt photo scan, savings goals (گلک), automatic SMS reading (native Android build)
 - P1: Roman Urdu UI toggle, local push reminders for bills (on request)
 - P2: WhatsApp bot, multi-device shared household with login, PDF/WhatsApp share of monthly report

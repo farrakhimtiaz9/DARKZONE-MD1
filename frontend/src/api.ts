@@ -12,8 +12,9 @@ export type Expense = {
   payment_method: string;
   member: string;
   date: string;
+  spend_level?: "normal" | "slightly_high" | "unusual" | null;
 };
-export type ExpenseInput = Omit<Expense, "id" | "date">;
+export type ExpenseInput = Omit<Expense, "id" | "date" | "spend_level">;
 export type Bill = {
   id: string;
   name: string;
@@ -40,7 +41,7 @@ export type Udhaar = { total_lena: number; total_dena: number; people: UdhaarPer
 export type Group = { key: string; amount: number };
 export type Report = { month: string; total: number; count: number; budget: number; by_category: Group[]; by_method: Group[]; by_member: Group[] };
 export type Settings = { monthly_budget: number; members: string[] };
-export type Parsed = { amount: number; category: string; note: string; payment_method: string; member: string };
+export type Parsed = { amount: number; category: string; note: string; payment_method: string; member: string; is_spend: boolean; sms_kind: string | null };
 
 async function req<T>(path: string, method = "GET", body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -62,7 +63,8 @@ export const api = {
   saveSettings: (s: Settings) => req<Settings>("/settings", "PUT", s),
   addExpense: (e: ExpenseInput) => req<Expense>("/expenses", "POST", e),
   deleteExpense: (id: string) => req(`/expenses/${id}`, "DELETE"),
-  parse: (text: string) => req<Parsed>("/parse", "POST", { text }),
+  parse: (text: string, source: "text" | "voice" | "sms") => req<Parsed>("/parse", "POST", { text, source }),
+  categorize: (note: string) => req<{ category: string | null; confidence: number }>("/categorize", "POST", { note }),
   udhaar: () => req<Udhaar>("/udhaar"),
   addUdhaar: (u: { person: string; amount: number; kind: "lena" | "dena"; note: string }) => req("/udhaar", "POST", u),
   settle: (person: string) => req("/udhaar/settle", "POST", { person }),

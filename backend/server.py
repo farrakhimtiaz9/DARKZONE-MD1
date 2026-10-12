@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 from emergentintegrations.llm.openai import OpenAISpeechToText
+from typesafe_sdk import Choice, Score, TypeSafeAPIError, TypeSafeError
+from jev import get_jev_client, jev_error_code
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -35,6 +37,29 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 CATEGORIES = ["grocery", "milk_veg", "bills", "transport", "health", "education", "guests", "clothes", "other"]
 METHODS = ["cash", "jazzcash", "easypaisa", "bank"]
+CATEGORY_CRITERIA = {
+    "grocery": "Kiryana / grocery staples: aata flour, cheeni sugar, ghee, oil, rice, daal, masalay, soap, household supplies",
+    "milk_veg": "Daily fresh food: doodh milk, dahi, sabzi vegetables, phal fruit, gosht meat, chicken, anday eggs, bread, roti",
+    "bills": "Utility bills and recharge: bijli electricity, gas, internet, mobile load/package, paani water, cable",
+    "transport": "Travel and vehicle: petrol, rickshaw, bus, careem, kiraya fare, bike repair, parking",
+    "health": "Health: dawai medicine, doctor, hospital, lab test, chemist",
+    "education": "Children's education: school/college fee, tuition, books, copies, uniform, stationery",
+    "guests": "Hospitality and social: mehman guests, dawat, mithai, gifts, shaadi, eidi, sadqa",
+    "clothes": "Clothing: kapray, joote shoes, darzi tailor, cloth",
+    "other": "Anything else that does not fit the categories above",
+}
+SPEND_LEVELS = ["normal", "slightly_high", "unusual"]
+
+
+async def jev_ask(state: dict, questions: dict):
+    """Returns Jev response or None on any failure (callers fall back gracefully)."""
+    try:
+        return await get_jev_client().system_one(model="jev-latest", state=state, questions=questions)
+    except TypeSafeAPIError as exc:
+        logger.warning("jev api error %s %s", exc.status, jev_error_code(exc))
+    except TypeSafeError as exc:
+        logger.warning("jev unavailable %s", exc)
+    return None
 
 
 # ---------- Mongo helpers ----------
@@ -92,6 +117,7 @@ class Expense(BaseDocument):
     member: str = ""
     date: str
     created_at: str
+    spend_level: Optional[str] = None
 
 
 class ExpenseIn(BaseModel):
@@ -140,6 +166,11 @@ class BillIn(BaseModel):
 
 class ParseIn(BaseModel):
     text: str = Field(min_length=1)
+    source: Literal["text", "voice", "sms"] = "text"
+
+
+class CategorizeIn(BaseModel):
+    note: str = Field(min_length=1, max_length=300)
 
 
 # ---------- Settings ----------
@@ -178,13 +209,43 @@ async def list_expenses(month: Optional[str] = None, limit: int = 200):
     return [Expense.from_mongo(d).model_dump() for d in docs]
 
 
-@api.post("/expenses")
-async def create_expense(body: ExpenseIn):
+async def insert_expense(body: ExpenseIn, spend_level: Optional[str] = None) -> dict:
     e = Expense(**body.model_dump(exclude={"date"}), date=body.date or today_str(),
-                created_at=datetime.now(timezone.utc).isoformat())
+                created_at=datetime.now(timezone.utc).isoformat(), spend_level=spend_level)
     res = await db.expenses.insert_one(e.to_mongo())
     e.id = str(res.inserted_id)
     return e.model_dump()
+
+
+async def spend_check(body: ExpenseIn) -> Optional[str]:
+    s = await summary()
+    state = {"new_expense_pkr": body.amount, "category": body.category, "note": body.note,
+             "already_spent_today_pkr": s["today_spent"], "comfortable_daily_limit_pkr": s["daily_limit"],
+             "monthly_budget_pkr": s["monthly_budget"], "spent_this_month_pkr": s["month_spent"]}
+    r = await jev_ask(state, {"level": Score(
+        instructions="For a Pakistani household, how unusual is this new expense compared with the comfortable daily limit, "
+                     "the budget and what the category normally costs? Planned bills and school fees are normal.",
+        criteria=SPEND_LEVELS)})
+    if not r:
+        return None
+    probs = r.scores["level"].probabilities
+    return SPEND_LEVELS[max(probs, key=probs.get)]
+
+
+@api.post("/expenses")
+async def create_expense(body: ExpenseIn):
+    return await insert_expense(body, await spend_check(body))
+
+
+@api.post("/categorize")
+async def categorize(body: CategorizeIn):
+    r = await jev_ask({"expense_note": body.note}, {"category": Choice(
+        instructions="Which household expense category does this Urdu / Roman Urdu / English note belong to?",
+        criteria=CATEGORY_CRITERIA)})
+    if not r:
+        return {"category": None, "confidence": 0, "ai_classified": False}
+    c = r.choices["category"]
+    return {"category": c.choice, "confidence": c.confidence, "ai_classified": True}
 
 
 @api.delete("/expenses/{eid}")
@@ -229,10 +290,27 @@ async def parse_text(text: str) -> dict:
             "payment_method": meth, "member": str(data.get("member") or "")}
 
 
+SMS_KINDS = {
+    "spend": "Money went OUT: a purchase, payment, bill payment, transfer sent, cash withdrawal or mobile load",
+    "received": "Money came IN: amount received, salary credited, refund, transfer received",
+    "otp": "A one-time password, verification or login code",
+    "balance": "Only a balance or mini statement notice with no new transaction",
+    "promo": "An advertisement, offer, reminder or other non-transaction message",
+}
+
+
 @api.post("/parse")
 async def parse(body: ParseIn):
+    if body.source == "sms":
+        r = await jev_ask({"sms": body.text[:1000]}, {"kind": Choice(
+            instructions="What kind of Pakistani bank / JazzCash / Easypaisa SMS is this?", criteria=SMS_KINDS)})
+        if r:
+            k = r.choices["kind"]
+            if k.choice != "spend" and k.confidence >= 0.6:
+                return {"amount": 0, "category": "other", "note": "", "payment_method": "cash", "member": "",
+                        "is_spend": False, "sms_kind": k.choice}
     try:
-        return await parse_text(body.text)
+        return {**(await parse_text(body.text)), "is_spend": True, "sms_kind": "spend" if body.source == "sms" else None}
     except HTTPException:
         raise
     except Exception as e:
@@ -339,7 +417,7 @@ async def pay_bill(bid: str):
     if ym not in b.paid_months:
         await db.bills.update_one({"_id": oid(bid)}, {"$addToSet": {"paid_months": ym}})
         if b.amount > 0:
-            await create_expense(ExpenseIn(amount=b.amount, category="bills", note=f"{b.name} کا بل"))
+            await insert_expense(ExpenseIn(amount=b.amount, category="bills", note=f"{b.name} کا بل"))
     doc = await db.bills.find_one({"_id": oid(bid)})
     return bill_view(Bill.from_mongo(doc))
 
@@ -406,3 +484,4 @@ app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+    await get_jev_client().aclose()
